@@ -667,6 +667,15 @@
     .modal-contact-card img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; }
     .modal-contact-card strong { display: block; margin-top: 8px; color: var(--cream); font-family: var(--serif); font-size: 15px; }
     .modal-contact-card span { display: block; margin-top: 2px; color: var(--mint); font-size: 10px; }
+    main .is-zoomable, main .is-zoomable img { cursor: zoom-in; }
+    main .is-zoomable:focus-visible { outline: 2px solid var(--orange-soft); outline-offset: 3px; }
+    .image-lightbox { position: fixed; z-index: 80; inset: 0; display: grid; padding: 68px 28px 24px; place-items: center; background: rgba(4, 6, 8, .94); opacity: 0; visibility: hidden; transition: opacity .22s ease, visibility .22s ease; }
+    .image-lightbox.is-open { opacity: 1; visibility: visible; }
+    .image-lightbox-figure { display: grid; gap: 12px; max-width: 100%; max-height: 100%; margin: 0; place-items: center; }
+    .image-lightbox-image { display: block; width: auto; max-width: min(94vw, 1800px); height: auto; max-height: calc(100vh - 130px); object-fit: contain; cursor: default; box-shadow: 0 24px 90px rgba(0, 0, 0, .55); }
+    .image-lightbox-close { position: fixed; z-index: 1; top: 20px; right: 22px; display: grid; width: 42px; height: 42px; padding: 0; place-items: center; border: 1px solid rgba(244, 226, 160, .38); border-radius: 50%; color: var(--cream); background: rgba(14, 12, 8, .82); font-size: 28px; line-height: 1; }
+    .image-lightbox-close:hover, .image-lightbox-close:focus-visible { border-color: var(--orange-soft); background: rgba(217, 180, 92, .16); outline: none; }
+    .image-lightbox-caption { max-width: min(90vw, 1100px); color: var(--muted); font-size: 12px; line-height: 1.6; text-align: center; }
     @media (max-width: 720px) {
       .nav-cta { min-width: 0; padding: 0 10px; }
       .nav-price-full { display: none; }
@@ -681,6 +690,10 @@
       .modal { padding: 24px 18px; }
       .modal-contact-card { padding: 7px; }
       .modal-contact-card strong { font-size: 14px; }
+      .image-lightbox { padding: 60px 12px 18px; }
+      .image-lightbox-image { max-width: 96vw; max-height: calc(100vh - 118px); }
+      .image-lightbox-close { top: 12px; right: 12px; width: 38px; height: 38px; }
+      .image-lightbox-caption { font-size: 11px; }
     }
 
     /* Production asset library: show the reusable visual standard behind every shot. */
@@ -1052,6 +1065,14 @@
     <div class="modal"><button class="modal-close" id="modalClose" aria-label="关闭">×</button><h2 id="modalTitle">添加微信客服</h2><p class="modal-support-lead">¥399 / 年 · 免费更新。扫码添加客服微信，直接咨询演示、价格和使用配置。</p><div class="modal-contact-grid"><div class="modal-contact-card"><img src="assets/wechat-contact.jpg" alt="微信客服二维码"><strong>微信客服</strong><span>扫码添加微信</span></div></div></div>
   </div>
 
+  <div class="image-lightbox" id="imageLightbox" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="imageLightboxCaption">
+    <button class="image-lightbox-close" id="imageLightboxClose" type="button" aria-label="关闭大图">×</button>
+    <figure class="image-lightbox-figure">
+      <img class="image-lightbox-image" id="imageLightboxImage" alt="">
+      <figcaption class="image-lightbox-caption" id="imageLightboxCaption"></figcaption>
+    </figure>
+  </div>
+
   <script>
     const nav = document.getElementById('siteNav');
     window.addEventListener('scroll', () => nav.classList.toggle('is-scrolled', window.scrollY > 16), { passive: true });
@@ -1137,7 +1158,53 @@
     document.querySelectorAll('.js-open-modal').forEach((button) => button.addEventListener('click', openModal));
     document.getElementById('modalClose').addEventListener('click', closeModal);
     modal.addEventListener('click', (event) => { if (event.target === modal) closeModal(); });
-    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeModal(); });
+
+    const imageLightbox = document.getElementById('imageLightbox');
+    const imageLightboxImage = document.getElementById('imageLightboxImage');
+    const imageLightboxCaption = document.getElementById('imageLightboxCaption');
+    const imageLightboxClose = document.getElementById('imageLightboxClose');
+    let imageLightboxTrigger = null;
+    const openImageLightbox = (image) => {
+      imageLightboxTrigger = image;
+      imageLightboxImage.src = image.currentSrc || image.src;
+      imageLightboxImage.alt = image.alt || '查看大图';
+      const figureCaption = image.closest('figure')?.querySelector('figcaption')?.innerText.trim();
+      imageLightboxCaption.textContent = figureCaption || image.alt || '';
+      imageLightbox.classList.add('is-open');
+      imageLightbox.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('modal-open');
+      imageLightboxClose.focus();
+    };
+    const closeImageLightbox = () => {
+      imageLightbox.classList.remove('is-open');
+      imageLightbox.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('modal-open');
+      if (imageLightboxTrigger) imageLightboxTrigger.focus();
+      imageLightboxTrigger = null;
+    };
+    document.querySelectorAll('main img').forEach((image) => {
+      if (image.closest('.contact-card')) return;
+      image.classList.add('is-zoomable');
+      const target = image.closest('figure, .hero-image-card') || image;
+      target.classList.add('is-zoomable');
+      target.tabIndex = 0;
+      target.setAttribute('role', 'button');
+      target.setAttribute('aria-label', `查看大图：${image.alt}`);
+      target.addEventListener('click', () => openImageLightbox(image));
+      target.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openImageLightbox(image);
+        }
+      });
+    });
+    imageLightboxClose.addEventListener('click', closeImageLightbox);
+    imageLightbox.addEventListener('click', (event) => { if (event.target === imageLightbox) closeImageLightbox(); });
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      if (imageLightbox.classList.contains('is-open')) closeImageLightbox();
+      else closeModal();
+    });
 
     const particleCanvas = document.getElementById('cursorParticles');
     const particleContext = particleCanvas ? particleCanvas.getContext('2d') : null;
